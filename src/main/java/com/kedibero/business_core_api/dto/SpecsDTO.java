@@ -1,6 +1,7 @@
 package com.kedibero.business_core_api.dto;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,9 +29,13 @@ public class SpecsDTO {
         this.specs = specs;
     }
 
+    @JsonValue
+    public Map<String, Object> asJson() {
+        return specs;
+    }
+
     @Override
     public String toString() {
         return specs.toString();
     }
 }
-
