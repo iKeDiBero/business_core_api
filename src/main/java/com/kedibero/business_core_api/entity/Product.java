@@ -31,11 +31,13 @@ public class Product {
     @Column(length = 50, unique = true)
     private String sku;
 
-    @Column(length = 100)
-    private String brand;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "brand_id")
+    private Brand brand;
 
-    @Column(length = 100)
-    private String model;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "model_id")
+    private Model model;
 
     @Column(length = 50)
     private String barcode;
@@ -43,8 +45,6 @@ public class Product {
     @Column(length = 50)
     private String productCondition; // new, refurbished, used
 
-    @Column(length = 255)
-    private String imageUrl;
 
     @Lob
     @Column(name = "image_base64")
@@ -105,14 +105,12 @@ public class Product {
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
-    public String getBrand() { return brand; }
-    public void setBrand(String brand) { this.brand = brand; }
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
+    public Brand getBrand() { return brand; }
+    public void setBrand(Brand brand) { this.brand = brand; }
+    public Model getModel() { return model; }
+    public void setModel(Model model) { this.model = model; }
     public String getProductCondition() { return productCondition; }
     public void setProductCondition(String productCondition) { this.productCondition = productCondition; }
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public String getSpecs() { return specs; }
     public void setSpecs(String specs) { this.specs = specs; }
     public Double getPricePerMonth() { return pricePerMonth; }

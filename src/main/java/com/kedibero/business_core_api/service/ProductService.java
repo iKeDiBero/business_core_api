@@ -5,8 +5,10 @@ import com.kedibero.business_core_api.dto.ProductRequest;
 import com.kedibero.business_core_api.dto.ProductResponse;
 import com.kedibero.business_core_api.dto.SpecsDTO;
 import com.kedibero.business_core_api.entity.Product;
+import com.kedibero.business_core_api.repository.BrandRepository;
 import com.kedibero.business_core_api.repository.CategoryRepository;
 import com.kedibero.business_core_api.repository.MetricUnitRepository;
+import com.kedibero.business_core_api.repository.ModelRepository;
 import com.kedibero.business_core_api.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -23,6 +25,10 @@ public class ProductService {
     private CategoryRepository categoryRepository;
     @Autowired
     private MetricUnitRepository metricUnitRepository;
+    @Autowired
+    private BrandRepository brandRepository;
+    @Autowired
+    private ModelRepository modelRepository;
 
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -37,10 +43,7 @@ public class ProductService {
         product.setImageBase64(request.getImageBase64());
         product.setIsActive(true);
         product.setSku(request.getSku());
-        product.setBrand(request.getBrand());
-        product.setModel(request.getModel());
         product.setProductCondition(request.getProductCondition());
-        product.setImageUrl(request.getImageUrl());
         product.setPricePerMonth(request.getPricePerMonth());
         product.setDeviceId(request.getDeviceId());
 
@@ -58,6 +61,12 @@ public class ProductService {
         }
         if (request.getMetricUnitId() != null) {
             metricUnitRepository.findById(request.getMetricUnitId()).ifPresent(product::setMetricUnit);
+        }
+        if (request.getBrandId() != null) {
+            brandRepository.findById(request.getBrandId()).ifPresent(product::setBrand);
+        }
+        if (request.getModelId() != null) {
+            modelRepository.findById(request.getModelId()).ifPresent(product::setModel);
         }
         Product saved = productRepository.save(product);
         return toResponse(saved);
@@ -75,10 +84,7 @@ public class ProductService {
         product.setBarcode(request.getBarcode());
         product.setImageBase64(request.getImageBase64());
         product.setSku(request.getSku());
-        product.setBrand(request.getBrand());
-        product.setModel(request.getModel());
         product.setProductCondition(request.getProductCondition());
-        product.setImageUrl(request.getImageUrl());
         product.setPricePerMonth(request.getPricePerMonth());
         product.setDeviceId(request.getDeviceId());
 
@@ -96,6 +102,12 @@ public class ProductService {
         }
         if (request.getMetricUnitId() != null) {
             metricUnitRepository.findById(request.getMetricUnitId()).ifPresent(product::setMetricUnit);
+        }
+        if (request.getBrandId() != null) {
+            brandRepository.findById(request.getBrandId()).ifPresent(product::setBrand);
+        }
+        if (request.getModelId() != null) {
+            modelRepository.findById(request.getModelId()).ifPresent(product::setModel);
         }
         Product saved = productRepository.save(product);
         return toResponse(saved);
@@ -137,10 +149,7 @@ public class ProductService {
         response.setCreatedAt(product.getCreatedAt());
         response.setUpdatedAt(product.getUpdatedAt());
         response.setSku(product.getSku());
-        response.setBrand(product.getBrand());
-        response.setModel(product.getModel());
         response.setProductCondition(product.getProductCondition());
-        response.setImageUrl(product.getImageUrl());
         response.setPricePerMonth(product.getPricePerMonth());
         response.setDeviceId(product.getDeviceId());
 
@@ -165,8 +174,15 @@ public class ProductService {
             response.setMetricUnitId(product.getMetricUnit().getId());
             response.setMetricUnitName(product.getMetricUnit().getName());
         }
+        if (product.getBrand() != null) {
+            response.setBrandId(product.getBrand().getId());
+            response.setBrandName(product.getBrand().getName());
+        }
+        if (product.getModel() != null) {
+            response.setModelId(product.getModel().getId());
+            response.setModelName(product.getModel().getName());
+        }
         return response;
     }
 }
-
 

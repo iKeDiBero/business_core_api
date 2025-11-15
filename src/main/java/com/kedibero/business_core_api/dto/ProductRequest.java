@@ -11,10 +11,9 @@ public class ProductRequest {
     private String imageBase64;
     private Long metricUnitId;
     private String sku;
-    private String brand;
-    private String model;
+    private Long brandId;
+    private Long modelId;
     private String productCondition;
-    private String imageUrl;
     private SpecsDTO specs;
     private Double pricePerMonth;
     private String deviceId;
@@ -24,8 +23,6 @@ public class ProductRequest {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
-    public SpecsDTO getSpecs() { return specs; }
-    public void setSpecs(SpecsDTO specs) { this.specs = specs; }
     public Double getWeight() { return weight; }
     public void setWeight(Double weight) { this.weight = weight; }
     public Double getPrice() { return price; }
@@ -42,18 +39,17 @@ public class ProductRequest {
     public void setImageBase64(String imageBase64) { this.imageBase64 = imageBase64; }
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
-    public String getBrand() { return brand; }
-    public void setBrand(String brand) { this.brand = brand; }
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
+    public Long getBrandId() { return brandId; }
+    public void setBrandId(Long brandId) { this.brandId = brandId; }
+    public Long getModelId() { return modelId; }
+    public void setModelId(Long modelId) { this.modelId = modelId; }
     public String getProductCondition() { return productCondition; }
     public void setProductCondition(String productCondition) { this.productCondition = productCondition; }
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public SpecsDTO getSpecs() { return specs; }
+    public void setSpecs(SpecsDTO specs) { this.specs = specs; }
     public Double getPricePerMonth() { return pricePerMonth; }
     public void setPricePerMonth(Double pricePerMonth) { this.pricePerMonth = pricePerMonth; }
     public String getDeviceId() { return deviceId; }
     public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
 }
-
 

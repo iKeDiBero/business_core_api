@@ -21,10 +21,11 @@ public class ProductResponse {
     private Long metricUnitId;
     private String metricUnitName;
     private String sku;
-    private String brand;
-    private String model;
+    private Long brandId;
+    private String brandName;
+    private Long modelId;
+    private String modelName;
     private String productCondition;
-    private String imageUrl;
     private SpecsDTO specs;
     private Double pricePerMonth;
     private String deviceId;
@@ -66,14 +67,16 @@ public class ProductResponse {
     public void setMetricUnitName(String metricUnitName) { this.metricUnitName = metricUnitName; }
     public String getSku() { return sku; }
     public void setSku(String sku) { this.sku = sku; }
-    public String getBrand() { return brand; }
-    public void setBrand(String brand) { this.brand = brand; }
-    public String getModel() { return model; }
-    public void setModel(String model) { this.model = model; }
+    public Long getBrandId() { return brandId; }
+    public void setBrandId(Long brandId) { this.brandId = brandId; }
+    public String getBrandName() { return brandName; }
+    public void setBrandName(String brandName) { this.brandName = brandName; }
+    public Long getModelId() { return modelId; }
+    public void setModelId(Long modelId) { this.modelId = modelId; }
+    public String getModelName() { return modelName; }
+    public void setModelName(String modelName) { this.modelName = modelName; }
     public String getProductCondition() { return productCondition; }
     public void setProductCondition(String productCondition) { this.productCondition = productCondition; }
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
     public SpecsDTO getSpecs() { return specs; }
     public void setSpecs(SpecsDTO specs) { this.specs = specs; }
     public Double getPricePerMonth() { return pricePerMonth; }
