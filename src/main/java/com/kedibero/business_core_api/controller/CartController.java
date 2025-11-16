@@ -48,13 +48,13 @@ public ResponseEntity<ApiResponse<Long>> createCart(
         return ResponseEntity.ok(ApiResponse.success(cart));
     }
 
-    @GetMapping("/user/{userId}/exists")
-    public ResponseEntity<ApiResponse<Object>> userHasCart(@PathVariable Long userId) {
-        Object cart = cartService.getCartByUserId(userId);
-        if (cart == null) {
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(ApiResponse.success(cart));
+    @GetMapping("/user/exists")
+public ResponseEntity<ApiResponse<Object>> userHasCart(@AuthenticationPrincipal UserDetails userDetails) {
+    Object cart = cartService.getCartByUsername(userDetails.getUsername());
+    if (cart == null) {
+        return ResponseEntity.noContent().build();
     }
+    return ResponseEntity.ok(ApiResponse.success(cart));
+}
 
 }

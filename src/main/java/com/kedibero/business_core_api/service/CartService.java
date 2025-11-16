@@ -122,6 +122,27 @@ public class CartService {
         return cartId;
     }
 
+    public Object getCartByUsername(String username) {
+        try {
+            List<?> userResult = entityManager.createNativeQuery(
+                    "SELECT id FROM users WHERE username = ?")
+                    .setParameter(1, username)
+                    .getResultList();
+
+            if (userResult.isEmpty()) {
+                return null;
+            }
+
+            Long userId = ((Number) userResult.get(0)).longValue();
+            return getCartByUserId(userId);
+        } catch (Exception ex) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", true);
+            error.put("message", ex.getMessage());
+            return error;
+        }
+    }
+
     public Object getCartByUserId(Long userId) {
         try {
             List<Object[]> carts = entityManager.createNativeQuery(
