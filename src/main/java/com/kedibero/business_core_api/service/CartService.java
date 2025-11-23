@@ -6,11 +6,11 @@ import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+
 import com.kedibero.business_core_api.dto.CartRequest;
 
-// import java.time.LocalDateTime;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 @Service
 public class CartService {
@@ -19,7 +19,7 @@ public class CartService {
     private EntityManager entityManager;
 
     @Transactional
-    public Long createCart(CartRequest cartRequest, String username) {
+    public Object createCart(CartRequest cartRequest, String username) {
         // Obtener el id del usuario a partir del username
         List<?> userResult = entityManager.createNativeQuery(
                 "SELECT id FROM users WHERE username = ?")
@@ -72,25 +72,38 @@ public class CartService {
                     .executeUpdate();
         }
 
-        return cartId;
+        return getCartByUserId(userId);
     }
 
     @Transactional
-    public Long updateCart(Long cartId, CartRequest cartRequest, String username) {
-        // Validar que el carrito existe y pertenece al usuario autenticado
-        List<?> cartOwner = entityManager.createNativeQuery(
-                "SELECT c.id FROM carts c JOIN users u ON c.user_id = u.id WHERE c.id = ? AND u.username = ?")
-                .setParameter(1, cartId)
-                .setParameter(2, username)
+    public Object updateCart(CartRequest cartRequest, String username) {
+        // Obtener el carrito activo del usuario
+        List<?> userResult = entityManager.createNativeQuery(
+                "SELECT id FROM users WHERE username = ?")
+                .setParameter(1, username)
                 .getResultList();
 
-        if (cartOwner.isEmpty()) {
-            throw new IllegalArgumentException("El carrito no existe o no pertenece al usuario autenticado.");
+        if (userResult.isEmpty()) {
+            throw new IllegalArgumentException("Usuario no encontrado.");
         }
+
+        Long userId = ((Number) userResult.get(0)).longValue();
+
+        // Buscar el carrito activo del usuario
+        List<?> cartResult = entityManager.createNativeQuery(
+                "SELECT id FROM carts WHERE user_id = ? AND status = TRUE LIMIT 1")
+                .setParameter(1, userId)
+                .getResultList();
+
+        if (cartResult.isEmpty()) {
+            throw new IllegalArgumentException("El usuario no tiene un carrito activo.");
+        }
+
+        Long cartId = ((Number) cartResult.get(0)).longValue();
 
         entityManager.createNativeQuery(
                 "UPDATE carts SET status = ?, updated_at = NOW() WHERE id = ?")
-                .setParameter(1, cartRequest.getStatus())
+                .setParameter(1, cartRequest.getStatus() != null ? cartRequest.getStatus() : Boolean.TRUE)
                 .setParameter(2, cartId)
                 .executeUpdate();
 
@@ -119,7 +132,8 @@ public class CartService {
                     .setParameter(4, price)
                     .executeUpdate();
         }
-        return cartId;
+        
+        return getCartByUserId(userId);
     }
 
     public Object getCartByUsername(String username) {
