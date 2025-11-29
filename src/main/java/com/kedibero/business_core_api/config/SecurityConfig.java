@@ -51,6 +51,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/version", "/version/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/db-connection-status").permitAll()
                         .requestMatchers("/public/**").permitAll()
+                        // Endpoint público para callback de pago de Niubiz
+                        .requestMatchers("/api/orders/payment-callback").permitAll()
+                        .requestMatchers("/api/orders/niubiz-callback").permitAll()
                         // permitir preflight CORS en todas las rutas
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Todos los demás requieren autenticación

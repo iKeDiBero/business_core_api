@@ -137,4 +137,172 @@ public class NiubizService {
     public String getMerchantId() {
         return merchantId;
     }
+
+    /**
+     * Solicita la autorización de una transacción usando el transactionToken
+     * Este método debe llamarse después de que el usuario completa el pago en el formulario
+     * 
+     * Endpoint: POST /api.authorization/v3/authorization/ecommerce/{merchantId}
+     * 
+     * Request ejemplo:
+     * {
+     *   "channel": "web",
+     *   "captureType": "manual",
+     *   "countable": true,
+     *   "order": {
+     *     "tokenId": "99E9BF92C69A4799A9BF92C69AF79979",
+     *     "purchaseNumber": 2020100901,
+     *     "amount": 10.5,
+     *     "currency": "PEN"
+     *   }
+     * }
+     * 
+     * @param transactionToken Token de la transacción devuelto por el formulario de Niubiz (tokenId)
+     * @param purchaseNumber Número de compra (orderId)
+     * @param amount Monto de la transacción
+     * @return Mapa con los detalles de la transacción
+     */
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> getTransactionStatus(String transactionToken, String purchaseNumber, double amount) {
+        try {
+            // Obtener token de autorización (Access Token)
+            String authToken = getAuthorizationToken();
+
+            // URL para solicitar la autorización de la transacción
+            String url = apiUrl + "/api.authorization/v3/authorization/ecommerce/" + merchantId;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.set("Authorization", authToken);
+
+            // Crear body del request según ejemplo de documentación de Niubiz
+            // Solo channel, captureType, countable y order son necesarios
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("channel", "web");
+            requestBody.put("captureType", "manual");
+            requestBody.put("countable", true); // true = Liquidación automática
+            
+            // Objeto order (obligatorio)
+            Map<String, Object> order = new HashMap<>();
+            order.put("tokenId", transactionToken);
+            order.put("purchaseNumber", purchaseNumber);
+            order.put("amount", amount);
+            order.put("currency", "PEN");
+            requestBody.put("order", order);
+
+            String jsonBody = objectMapper.writeValueAsString(requestBody);
+            System.out.println("=== Niubiz Authorization Request ===");
+            System.out.println("URL: " + url);
+            System.out.println("Authorization: " + authToken.substring(0, Math.min(50, authToken.length())) + "...");
+            System.out.println("Body: " + jsonBody);
+
+            HttpEntity<String> request = new HttpEntity<>(jsonBody, headers);
+
+            ResponseEntity<Map> response = restTemplate.exchange(
+                url,
+                HttpMethod.POST,
+                request,
+                Map.class
+            );
+
+            System.out.println("=== Niubiz Authorization Response ===");
+            System.out.println("Status: " + response.getStatusCode());
+            System.out.println("Response: " + response.getBody());
+
+            if (response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                Map<String, Object> result = new HashMap<>();
+                
+                // Extraer datos del dataMap de la respuesta
+                Map<String, Object> responseDataMap = (Map<String, Object>) responseBody.get("dataMap");
+                if (responseDataMap != null) {
+                    // Campos importantes para determinar éxito/fallo
+                    result.put("actionCode", responseDataMap.get("ACTION_CODE"));
+                    result.put("status", responseDataMap.get("STATUS")); // "Authorized" = éxito
+                    result.put("actionDescription", responseDataMap.get("ACTION_DESCRIPTION"));
+                    result.put("authorizationCode", responseDataMap.get("AUTHORIZATION_CODE"));
+                    result.put("transactionId", responseDataMap.get("TRANSACTION_ID"));
+                    result.put("traceNumber", responseDataMap.get("TRACE_NUMBER"));
+                    result.put("cardBrand", responseDataMap.get("BRAND"));
+                    result.put("cardNumber", responseDataMap.get("CARD"));
+                    result.put("cardType", responseDataMap.get("CARD_TYPE"));
+                    result.put("eciDescription", responseDataMap.get("ECI_DESCRIPTION"));
+                    result.put("signature", responseDataMap.get("SIGNATURE"));
+                    result.put("amount", responseDataMap.get("AMOUNT"));
+                    result.put("currency", responseDataMap.get("CURRENCY"));
+                }
+                
+                // Extraer datos del objeto order de la respuesta
+                Map<String, Object> orderResponse = (Map<String, Object>) responseBody.get("order");
+                if (orderResponse != null) {
+                    result.put("authorizedAmount", orderResponse.get("authorizedAmount"));
+                    result.put("installment", orderResponse.get("installment"));
+                    // Si no hay actionCode en dataMap, intentar obtenerlo de order
+                    if (result.get("actionCode") == null) {
+                        result.put("actionCode", orderResponse.get("actionCode"));
+                    }
+                    if (result.get("authorizationCode") == null) {
+                        result.put("authorizationCode", orderResponse.get("authorizationCode"));
+                    }
+                }
+                
+                // Extraer datos del fulfillment
+                Map<String, Object> fulfillment = (Map<String, Object>) responseBody.get("fulfillment");
+                if (fulfillment != null && result.get("signature") == null) {
+                    result.put("signature", fulfillment.get("signature"));
+                }
+                
+                result.put("transactionToken", transactionToken);
+                result.put("purchaseNumber", purchaseNumber);
+                result.put("requestedAmount", amount);
+                
+                return result;
+            }
+
+            throw new RuntimeException("No se pudo obtener el estado de la transacción - respuesta vacía");
+
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            System.err.println("=== Niubiz Authorization Error ===");
+            System.err.println("HTTP Status: " + e.getStatusCode());
+            System.err.println("Response body: " + e.getResponseBodyAsString());
+            
+            // Intentar parsear el error de Niubiz
+            Map<String, Object> errorResult = new HashMap<>();
+            try {
+                Map<String, Object> errorBody = objectMapper.readValue(e.getResponseBodyAsString(), Map.class);
+                errorResult.put("actionCode", "ERROR");
+                errorResult.put("status", "Not Authorized");
+                
+                // Para errores 400, el mensaje está en errorMessage
+                if (errorBody.containsKey("errorMessage")) {
+                    errorResult.put("actionDescription", errorBody.get("errorMessage"));
+                    errorResult.put("errorCode", errorBody.get("errorCode"));
+                } 
+                // Para errores 401, 406, 500 el mensaje está en description
+                else if (errorBody.containsKey("description")) {
+                    errorResult.put("actionDescription", errorBody.get("description"));
+                }
+                
+            } catch (Exception parseEx) {
+                errorResult.put("actionCode", "ERROR");
+                errorResult.put("status", "Not Authorized");
+                errorResult.put("actionDescription", "Error HTTP " + e.getStatusCode() + ": " + e.getMessage());
+            }
+            errorResult.put("transactionToken", transactionToken);
+            return errorResult;
+            
+        } catch (Exception e) {
+            System.err.println("=== Niubiz Authorization Exception ===");
+            System.err.println("Error: " + e.getMessage());
+            e.printStackTrace();
+            
+            // Retornar un resultado de error
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("actionCode", "ERROR");
+            errorResult.put("status", "Not Authorized");
+            errorResult.put("actionDescription", "Error al autorizar transacción: " + e.getMessage());
+            errorResult.put("transactionToken", transactionToken);
+            return errorResult;
+        }
+    }
 }

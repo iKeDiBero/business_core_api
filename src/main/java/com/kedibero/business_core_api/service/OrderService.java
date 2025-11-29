@@ -4,8 +4,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.kedibero.business_core_api.dto.PaymentCallbackRequest;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -15,6 +18,9 @@ public class OrderService {
 
     @PersistenceContext
     private EntityManager entityManager;
+
+    @Autowired
+    private NiubizService niubizService;
 
     @Transactional
     public Object createOrderFromCart(String username) {
@@ -202,5 +208,178 @@ public class OrderService {
         }
 
         return orders;
+    }
+
+    /**
+     * Procesa la respuesta de callback de Niubiz
+     * @param orderId ID de la orden
+     * @param callbackData Datos del callback de Niubiz
+     * @return Información de la orden actualizada
+     */
+    @Transactional
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> processPaymentCallback(Long orderId, PaymentCallbackRequest callbackData) {
+        // Verificar que la orden existe
+        List<Object[]> orderResult = (List<Object[]>) entityManager.createNativeQuery(
+                "SELECT id, user_id, total, status FROM orders WHERE id = ?")
+                .setParameter(1, orderId)
+                .getResultList();
+
+        if (orderResult.isEmpty()) {
+            throw new IllegalArgumentException("Orden no encontrada: " + orderId);
+        }
+
+        Object[] orderRow = orderResult.get(0);
+        double orderTotal = ((Number) orderRow[2]).doubleValue();
+        String currentStatus = (String) orderRow[3];
+
+        String newStatus;
+        String paymentMessage;
+        boolean paymentSuccessful = false;
+        String transactionCode = null;
+        String authorizationCode = null;
+        String actionCode = null;
+
+        // Si tenemos un transactionToken, consultar a Niubiz por los detalles reales
+        if (callbackData != null && callbackData.getTransactionToken() != null 
+                && !callbackData.getTransactionToken().isEmpty()
+                && !"null".equals(callbackData.getTransactionToken())) {
+            
+            System.out.println("=== Consulting Niubiz for transaction details ===");
+            System.out.println("Transaction Token: " + callbackData.getTransactionToken());
+            
+            try {
+                Map<String, Object> transactionDetails = niubizService.getTransactionStatus(
+                    callbackData.getTransactionToken(),
+                    orderId.toString(),
+                    orderTotal
+                );
+                
+                System.out.println("Transaction Details: " + transactionDetails);
+                
+                actionCode = (String) transactionDetails.get("actionCode");
+                transactionCode = (String) transactionDetails.get("transactionId");
+                authorizationCode = (String) transactionDetails.get("authorizationCode");
+                String status = (String) transactionDetails.get("status");
+                
+                // Según documentación Niubiz:
+                // - ActionCode "000" o "010" indica transacción autorizada
+                // - STATUS "Authorized" confirma que la venta fue exitosa
+                boolean isAuthorized = "Authorized".equals(status) || 
+                                       "000".equals(actionCode) || 
+                                       "010".equals(actionCode);
+                
+                if (isAuthorized) {
+                    newStatus = "completed";
+                    paymentMessage = (String) transactionDetails.get("actionDescription");
+                    if (paymentMessage == null) {
+                        paymentMessage = "Pago procesado exitosamente";
+                    }
+                    paymentSuccessful = true;
+                } else {
+                    newStatus = "payment_failed";
+                    String description = (String) transactionDetails.get("actionDescription");
+                    paymentMessage = description != null ? description : "Error en el pago: " + actionCode;
+                }
+                
+                // Actualizar callbackData con la información real
+                callbackData.setActionCode(actionCode);
+                callbackData.setTransactionCode(transactionCode);
+                callbackData.setAuthorizationCode(authorizationCode);
+                callbackData.setCardBrand((String) transactionDetails.get("cardBrand"));
+                callbackData.setCardNumber((String) transactionDetails.get("cardNumber"));
+                
+            } catch (Exception e) {
+                System.err.println("Error consulting Niubiz: " + e.getMessage());
+                newStatus = currentStatus;
+                paymentMessage = "Error al consultar estado de pago: " + e.getMessage();
+            }
+        } else if (callbackData != null && callbackData.getActionCode() != null 
+                && !callbackData.getActionCode().isEmpty()
+                && !"null".equals(callbackData.getActionCode())) {
+            // Si ya tenemos actionCode en los datos del callback
+            actionCode = callbackData.getActionCode();
+            transactionCode = callbackData.getTransactionCode();
+            authorizationCode = callbackData.getAuthorizationCode();
+            
+            if ("000".equals(actionCode)) {
+                newStatus = "completed";
+                paymentMessage = "Pago procesado exitosamente";
+                paymentSuccessful = true;
+            } else {
+                newStatus = "payment_failed";
+                paymentMessage = callbackData.getActionDescription() != null 
+                    ? callbackData.getActionDescription() 
+                    : "Error en el pago: " + actionCode;
+            }
+        } else {
+            // Si no hay datos de callback válidos, mantener el estado actual
+            newStatus = currentStatus;
+            paymentMessage = "Callback recibido sin datos de transacción válidos";
+        }
+
+        // Actualizar el estado de la orden
+        entityManager.createNativeQuery(
+                "UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?")
+                .setParameter(1, newStatus)
+                .setParameter(2, orderId)
+                .executeUpdate();
+
+        // Preparar respuesta
+        Map<String, Object> result = new HashMap<>();
+        result.put("orderId", orderId);
+        result.put("previousStatus", currentStatus);
+        result.put("newStatus", newStatus);
+        result.put("status", newStatus);
+        result.put("paymentSuccessful", paymentSuccessful);
+        result.put("message", paymentMessage);
+        result.put("transactionCode", transactionCode);
+        result.put("authorizationCode", authorizationCode);
+        result.put("actionCode", actionCode);
+        result.put("amount", orderTotal);
+        
+        // Agregar datos de la tarjeta si están disponibles
+        if (callbackData != null) {
+            result.put("cardBrand", callbackData.getCardBrand());
+            result.put("cardNumber", callbackData.getCardNumber());
+        }
+
+        // Guardar registro del pago (después de preparar el resultado)
+        // Usamos una consulta separada y verificamos primero si la tabla existe
+        if (transactionCode != null) {
+            savePaymentLog(orderId, transactionCode, authorizationCode, actionCode, 
+                          paymentMessage, orderTotal, 
+                          callbackData != null ? callbackData.getCardBrand() : null,
+                          callbackData != null ? callbackData.getCardNumber() : null);
+        }
+
+        return result;
+    }
+
+    /**
+     * Guarda el log de pago de forma segura (no afecta la transacción principal si falla)
+     */
+    private void savePaymentLog(Long orderId, String transactionCode, String authorizationCode,
+                                String actionCode, String actionDescription, Double amount,
+                                String cardBrand, String cardNumber) {
+        try {
+            entityManager.createNativeQuery(
+                "INSERT INTO payment_logs (order_id, transaction_code, authorization_code, action_code, " +
+                "action_description, amount, card_brand, card_number, created_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())")
+                .setParameter(1, orderId)
+                .setParameter(2, transactionCode)
+                .setParameter(3, authorizationCode)
+                .setParameter(4, actionCode)
+                .setParameter(5, actionDescription)
+                .setParameter(6, amount)
+                .setParameter(7, cardBrand)
+                .setParameter(8, cardNumber)
+                .executeUpdate();
+            System.out.println("Payment log saved successfully for order: " + orderId);
+        } catch (Exception e) {
+            // Solo logear el error, no afectar la transacción principal
+            System.out.println("Warning: Could not save payment log (table may not exist): " + e.getMessage());
+        }
     }
 }

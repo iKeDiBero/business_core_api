@@ -147,4 +147,45 @@ CREATE TABLE db_connection_test (
     id BIGINT AUTO_INCREMENT PRIMARY KEY
 );
 
+-- Table: orders
+DROP TABLE IF EXISTS orders;
+CREATE TABLE IF NOT EXISTS orders (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    total DOUBLE NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at DATETIME(6),
+    updated_at DATETIME(6),
+    CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (id)
+);
+
+-- Table: order_items
+DROP TABLE IF EXISTS order_items;
+CREATE TABLE IF NOT EXISTS order_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    quantity INT NOT NULL,
+    price DOUBLE NOT NULL,
+    created_at DATETIME(6),
+    CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders (id),
+    CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products (id)
+);
+
+-- Table: payment_logs
+DROP TABLE IF EXISTS payment_logs;
+CREATE TABLE IF NOT EXISTS payment_logs (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    order_id BIGINT NOT NULL,
+    transaction_code VARCHAR(100),
+    authorization_code VARCHAR(50),
+    action_code VARCHAR(10),
+    action_description VARCHAR(255),
+    amount DOUBLE,
+    card_brand VARCHAR(50),
+    card_number VARCHAR(50),
+    created_at DATETIME(6),
+    CONSTRAINT fk_payment_logs_order FOREIGN KEY (order_id) REFERENCES orders (id)
+);
+
 SET FOREIGN_KEY_CHECKS = 1;
