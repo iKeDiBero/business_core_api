@@ -188,4 +188,20 @@ CREATE TABLE IF NOT EXISTS payment_logs (
     CONSTRAINT fk_payment_logs_order FOREIGN KEY (order_id) REFERENCES orders (id)
 );
 
+-- Table: support_tickets
+DROP TABLE IF EXISTS support_tickets;
+CREATE TABLE IF NOT EXISTS support_tickets (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    product_id BIGINT NOT NULL,
+    subject VARCHAR(255) NOT NULL,
+    description TEXT,
+    status VARCHAR(50) DEFAULT 'pending',
+    created_at DATETIME(6),
+    resolved_at DATETIME(6),
+    scheduled_resolution_at DATETIME(6),
+    CONSTRAINT fk_support_tickets_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT fk_support_tickets_product FOREIGN KEY (product_id) REFERENCES products (id)
+);
+
 SET FOREIGN_KEY_CHECKS = 1;
